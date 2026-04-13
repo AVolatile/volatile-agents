@@ -7,7 +7,7 @@ TRANSFORM
 Landscape Portfolio
 
 ## Project Link / Repo
-https://github.com/AVolatile/landscape-portfolio
+https://github.com/AVolatile/vaultedge-site
 
 ## Task Description
 Clone or open the target project, scan it for template/origin traces, and make actual file-level edits to remove those traces and align branding to Volatile | Solutions.
