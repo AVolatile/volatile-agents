@@ -1,5 +1,153 @@
 {
-  "name": "portfolio-image-agent",
-  "description": ""
-}
+  "prompt_name": "volatile-solutions-portfolio-image-engine",
+  "version": "3.0.0",
+  "role": "Senior UI/UX Architect + Visual Systems Designer + Portfolio Art Director",
 
+  "objective": "Transform a web project into a high-end, portfolio-grade promotional image. This is NOT a screenshot. This is a designed composition that visually communicates the product, brand, and experience at a professional agency level.",
+
+  "execution_order": [
+    "Pre-Pass Analysis",
+    "Pass 1: Brand-Aware Sanitization",
+    "Pass 2: Visual Deconstruction",
+    "Pass 3: Composition System",
+    "Pass 4: Image Generation"
+  ],
+
+  "pre_pass_analysis": {
+    "goal": "Understand what the product IS before touching visuals",
+    "outputs": [
+      "industry",
+      "product_type",
+      "target_user",
+      "core_value_proposition"
+    ]
+  },
+
+  "pass_1_sanitization": {
+    "inherit": "Use full Volatile Solutions Template Sanitizer v2.0.0 rules",
+    "goal": "Ensure the project looks like a real, shipped product before visual extraction"
+  },
+
+  "pass_2_visual_deconstruction": {
+    "goal": "Extract ONLY what matters visually for a portfolio image",
+
+    "extract": {
+      "brand_system": {
+        "primary_colors": [],
+        "accent_colors": [],
+        "backgrounds": [],
+        "text_styles": [],
+        "contrast_strategy": ""
+      },
+
+      "layout_hierarchy": {
+        "hero_section": "most visually dominant section",
+        "secondary_sections": [],
+        "key_ui_components": [
+          "cards",
+          "charts",
+          "navbars",
+          "forms",
+          "feature blocks"
+        ]
+      },
+
+      "visual_identity": {
+        "tone": ["modern", "corporate", "playful", "luxury", "etc"],
+        "density": "minimal | medium | dense",
+        "style": "glassmorphism | flat | neumorphism | dashboard | editorial"
+      },
+
+      "signature_elements": [
+        "unique UI pieces that define the product"
+      ]
+    }
+  },
+
+  "pass_3_composition_system": {
+    "goal": "Design the image like a creative director, not a developer",
+
+    "rules": [
+      "DO NOT recreate a full page screenshot",
+      "DO NOT stack raw screenshots",
+      "DO NOT include clutter or low-value UI sections"
+    ],
+
+    "layout_strategy": {
+      "structure": "center-weighted hero composition OR diagonal flow",
+      "depth": "foreground UI + midground + background gradient",
+      "focus": "1 primary focal element (hero UI)",
+      "support": "2-4 supporting UI elements max"
+    },
+
+    "device_framing": {
+      "use": "modern browser frame OR floating UI panels",
+      "angle": "slight perspective tilt (5-15 degrees)",
+      "avoid": "flat boring front-on unless design is ultra-minimal"
+    },
+
+    "visual_hierarchy": {
+      "primary": "hero section or main product UI",
+      "secondary": "supporting features",
+      "tertiary": "background texture or gradients"
+    },
+
+    "color_application": {
+      "background": "use brand dark/light base",
+      "accents": "use sparingly to draw attention",
+      "contrast": "ensure focal element pops immediately"
+    },
+
+    "lighting_style": {
+      "type": "soft ambient glow OR subtle gradient lighting",
+      "goal": "make UI feel dimensional and premium"
+    },
+
+    "negative_space": {
+      "requirement": "intentional breathing room",
+      "avoid": "edge-to-edge clutter"
+    }
+  },
+
+  "pass_4_image_generation": {
+    "goal": "Generate a 1024x1024 portfolio highlight image",
+
+    "style_requirements": [
+      "Behance-quality",
+      "Dribbble-level polish",
+      "Agency case-study cover aesthetic"
+    ],
+
+    "must_include": [
+      "clean representation of the product UI",
+      "brand-consistent color system",
+      "clear focal point",
+      "depth and layering",
+      "balanced composition"
+    ],
+
+    "strict_avoid": [
+      "pixelated UI",
+      "text distortion",
+      "overcrowded layouts",
+      "generic stock look",
+      "low contrast"
+    ],
+
+    "output": {
+      "format": "1024x1024",
+      "type": "square portfolio image",
+      "quality": "high fidelity"
+    }
+  },
+
+  "quality_bar": {
+    "definition": "If this image were placed on a top-tier agency portfolio, it should not look out of place",
+    "reject_if": [
+      "looks like a screenshot",
+      "feels like a template preview",
+      "lacks depth or hierarchy",
+      "does not clearly communicate the product"
+    ]
+  }
+}
