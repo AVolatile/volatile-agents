@@ -1,0 +1,489 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/homebrew/sbin:${PATH:-}"
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_DIR="$(cd "${SCRIPT_PATH%/*}" && pwd)"
+WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TARGET_PROJECTS_DIR="${WORKSPACE_ROOT}/target-projects"
+TASKS_DIR="${WORKSPACE_ROOT}/tasks"
+OUTPUT_DIR="${WORKSPACE_ROOT}/output"
+RUNNER_CONTRACT_FILE="${WORKSPACE_ROOT}/run-agent.md"
+TRANSFORM_AGENT_FILE="${WORKSPACE_ROOT}/agents/transformation-agent.json"
+
+resolve_codex_bin() {
+  if command -v codex >/dev/null 2>&1; then
+    command -v codex
+    return 0
+  fi
+
+  local candidates=(/Users/avolatile/.vscode/extensions/openai.chatgpt-*/bin/macos-aarch64/codex)
+
+  if [ "${#candidates[@]}" -gt 0 ] && [ -x "${candidates[0]}" ]; then
+    printf '%s\n' "${candidates[0]}"
+    return 0
+  fi
+
+  return 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./bin/volatile-agent transform <site> [options]
+  ./bin/volatile-agent help
+
+Options:
+  --repo-url <url>         Clone the repo into target-projects if no match exists
+  --project-name <name>    Override the project name written into the task file
+  --task <text>            Override the task description written into the task file
+  --model <model>          Pass a specific model to codex exec
+  --commit                 Commit target repo changes after the transform run
+  --commit-message <text>  Override the target repo commit message
+  --push                   Commit and push target repo changes after the transform run
+  --dry-run                Create task and prompt artifacts without running codex
+  -h, --help               Show this help text
+
+Examples:
+  ./bin/volatile-agent transform vaultedge
+  ./bin/volatile-agent transform vaultedge --repo-url https://github.com/AVolatile/vaultedge-site.git
+  ./bin/volatile-agent transform vaultedge --push
+EOF
+}
+
+die() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+strip_common_suffixes() {
+  local value="$1"
+  value="${value%-site}"
+  value="${value%-website}"
+  value="${value%-web}"
+  value="${value%-template}"
+  value="${value%-landing}"
+  printf '%s' "$value"
+}
+
+titleize_slug() {
+  printf '%s' "$1" \
+    | sed 's/[-_]/ /g' \
+    | awk '{
+        for (i = 1; i <= NF; i++) {
+          $i = toupper(substr($i, 1, 1)) tolower(substr($i, 2))
+        }
+        print
+      }'
+}
+
+resolve_target_dir() {
+  local query="$1"
+  local query_slug
+  local dir
+  local basename_slug
+  local reduced_slug
+  local exact_matches=()
+  local loose_matches=()
+
+  query_slug="$(slugify "$query")"
+  [ -n "$query_slug" ] || return 1
+
+  if [ -d "${TARGET_PROJECTS_DIR}/${query}" ]; then
+    printf '%s\n' "${TARGET_PROJECTS_DIR}/${query}"
+    return 0
+  fi
+
+  for dir in "${TARGET_PROJECTS_DIR}"/*; do
+    [ -d "$dir" ] || continue
+    basename_slug="$(slugify "$(basename "$dir")")"
+    reduced_slug="$(strip_common_suffixes "$basename_slug")"
+
+    if [ "$basename_slug" = "$query_slug" ] || [ "$reduced_slug" = "$query_slug" ]; then
+      exact_matches+=("$dir")
+      continue
+    fi
+
+    case "$basename_slug" in
+      "${query_slug}"* )
+        loose_matches+=("$dir")
+        ;;
+    esac
+  done
+
+  if [ "${#exact_matches[@]}" -eq 1 ]; then
+    printf '%s\n' "${exact_matches[0]}"
+    return 0
+  fi
+
+  if [ "${#exact_matches[@]}" -gt 1 ]; then
+    echo "Error: Multiple exact project matches found for '${query}': ${exact_matches[*]}" >&2
+    return 2
+  fi
+
+  if [ "${#loose_matches[@]}" -eq 1 ]; then
+    printf '%s\n' "${loose_matches[0]}"
+    return 0
+  fi
+
+  if [ "${#loose_matches[@]}" -gt 1 ]; then
+    echo "Error: Multiple project matches found for '${query}': ${loose_matches[*]}" >&2
+    return 2
+  fi
+
+  return 1
+}
+
+ensure_repo_exists() {
+  local repo_url="$1"
+  local repo_name
+  local destination
+
+  [ -n "$repo_url" ] || return 1
+
+  repo_name="$(basename "$repo_url")"
+  repo_name="${repo_name%.git}"
+  destination="${TARGET_PROJECTS_DIR}/${repo_name}"
+
+  if [ -d "$destination/.git" ]; then
+    printf '%s\n' "$destination"
+    return 0
+  fi
+
+  echo "Cloning ${repo_url} into ${destination}"
+  git clone "$repo_url" "$destination"
+  printf '%s\n' "$destination"
+}
+
+is_git_repo() {
+  local target_dir="$1"
+  git -C "$target_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+default_task_description() {
+  cat <<'EOF'
+Open the project located at the target path and perform a full transformation using the transformation agent.
+
+You must scan the actual project files and:
+- infer the site's real industry or company type from the template
+- replace placeholder, demo, or generic content with production-grade fictional business content that fits that industry
+- remove template/origin traces from public content, metadata, comments, and project-authored code where appropriate
+- keep the public site branding aligned to the fictional in-template business, not Volatile | Solutions
+- preserve legitimate third-party dependency license text unless the dependency itself is removed or replaced
+- ensure consistency across HTML, CSS, JS, metadata, and visible UI content
+EOF
+}
+
+write_task_file() {
+  local task_file="$1"
+  local project_name="$2"
+  local repo_url="$3"
+  local target_dir="$4"
+  local task_description="$5"
+  local result_file="$6"
+
+  cat >"$task_file" <<EOF
+# Agent Task
+
+## Agent Type
+TRANSFORM
+
+## Project Name
+${project_name}
+
+## Target Project Path
+${target_dir}
+
+## Project Link / Repo
+${repo_url}
+
+## Task Description
+${task_description}
+
+## Output Expectation
+1. Real file-level edits must be made directly inside the Target Project Path
+2. Create a result file at:
+${result_file}
+
+3. The result file must include:
+- inferred industry and fictional business identity used
+- list of files modified
+- exact type of changes made per file
+- any remaining areas requiring manual review
+
+## Constraints
+- Do NOT scan outside the Target Project Path
+- Do NOT generate only a summary
+- You must perform real edits first, then report
+EOF
+}
+
+write_prompt_file() {
+  local prompt_file="$1"
+  local target_dir="$2"
+  local task_file="$3"
+  local result_file="$4"
+
+  cat >"$prompt_file" <<EOF
+You are running a Volatile Agents transformation task inside the selected target project.
+
+Before editing anything, open and follow these files:
+- ${RUNNER_CONTRACT_FILE}
+- ${TRANSFORM_AGENT_FILE}
+- ${task_file}
+
+Execution rules:
+- The current working directory is the only project you may edit: ${target_dir}
+- Do not scan or modify sibling projects
+- Perform real file-level edits in the current project before writing the report
+- Volatile | Solutions is the portfolio owner of the workflow, not the default public site brand
+- Keep the transformed site relevant to the template's inferred industry or company type
+- Create the required result file at ${result_file}
+- The result file must list the inferred industry and fictional business identity, modified files, exact change types per file, and remaining manual review items
+
+When the run is complete:
+- Leave the transformed site changes in the target project working tree
+- Leave the result file in place
+- Summarize the work concisely in the final message
+EOF
+}
+
+write_fallback_result_file() {
+  local result_file="$1"
+  local target_dir="$2"
+  local final_message_file="$3"
+  local changed_files
+
+  changed_files="$(git -C "$target_dir" status --short || true)"
+
+  cat >"$result_file" <<EOF
+# Transformation Result Fallback
+
+The runner created this file because the Codex transform completed without writing the requested result artifact.
+
+## Files Modified
+EOF
+
+  if [ -n "$changed_files" ]; then
+    printf '%s\n' "$changed_files" | sed 's/^/- /' >>"$result_file"
+  else
+    echo "- No working tree changes were detected after the run." >>"$result_file"
+  fi
+
+  cat >>"$result_file" <<EOF
+
+## Change Detail
+- Fallback artifact only. Inspect the target repo diff for exact file-level changes.
+
+## Final Message
+EOF
+
+  if [ -f "$final_message_file" ]; then
+    sed 's/^/> /' "$final_message_file" >>"$result_file"
+  else
+    echo "> No final message was captured from the Codex run." >>"$result_file"
+  fi
+
+  cat >>"$result_file" <<'EOF'
+
+## Manual Review
+- Review the target repo diff directly because this fallback file was auto-generated.
+EOF
+}
+
+commit_site_repo() {
+  local target_dir="$1"
+  local commit_message="$2"
+  local push_after="$3"
+
+  is_git_repo "$target_dir" || die "Target project is not a git repo: ${target_dir}"
+  git -C "$target_dir" add -A
+
+  if git -C "$target_dir" diff --cached --quiet; then
+    echo "No site repo changes to commit."
+    return 0
+  fi
+
+  git -C "$target_dir" commit -m "$commit_message"
+
+  if [ "$push_after" -eq 1 ]; then
+    git -C "$target_dir" remote get-url origin >/dev/null 2>&1 || die "Target git repo has no origin remote: ${target_dir}"
+    git -C "$target_dir" push origin HEAD
+  fi
+}
+
+run_transform() {
+  local site_query="${1:-}"
+  local repo_url=""
+  local project_name=""
+  local task_description=""
+  local model=""
+  local commit_after=0
+  local push_after=0
+  local dry_run=0
+  local commit_message=""
+  local target_dir=""
+  local resolved_slug=""
+  local task_id=""
+  local task_file=""
+  local result_file=""
+  local prompt_file=""
+  local final_message_file=""
+  local codex_cmd=()
+  local codex_bin=""
+
+  [ -n "$site_query" ] || die "transform requires a site identifier"
+  shift || true
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --repo-url)
+        [ "$#" -ge 2 ] || die "--repo-url requires a value"
+        repo_url="$2"
+        shift 2
+        ;;
+      --project-name)
+        [ "$#" -ge 2 ] || die "--project-name requires a value"
+        project_name="$2"
+        shift 2
+        ;;
+      --task)
+        [ "$#" -ge 2 ] || die "--task requires a value"
+        task_description="$2"
+        shift 2
+        ;;
+      --model)
+        [ "$#" -ge 2 ] || die "--model requires a value"
+        model="$2"
+        shift 2
+        ;;
+      --commit)
+        commit_after=1
+        shift
+        ;;
+      --commit-message)
+        [ "$#" -ge 2 ] || die "--commit-message requires a value"
+        commit_message="$2"
+        shift 2
+        ;;
+      --push)
+        commit_after=1
+        push_after=1
+        shift
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        die "Unknown option: $1"
+        ;;
+    esac
+  done
+
+  mkdir -p "$TASKS_DIR" "$OUTPUT_DIR" "$TARGET_PROJECTS_DIR"
+
+  if target_dir="$(resolve_target_dir "$site_query")"; then
+    :
+  else
+    local resolve_status=$?
+
+    if [ "$resolve_status" -eq 2 ]; then
+      exit 1
+    fi
+
+    if [ -n "$repo_url" ]; then
+      ensure_repo_exists "$repo_url" >/dev/null
+      target_dir="$(resolve_target_dir "$site_query")" || die "Repo was cloned but '${site_query}' still could not be resolved."
+    else
+      die "No project matched '${site_query}'. Add the repo under ${TARGET_PROJECTS_DIR} or pass --repo-url."
+    fi
+  fi
+
+  [ -d "$target_dir" ] || die "Resolved target directory does not exist: ${target_dir}"
+  if [ "$commit_after" -eq 1 ] && ! is_git_repo "$target_dir"; then
+    die "Target project is not a git repo, so --commit/--push cannot be used: ${target_dir}"
+  fi
+
+  if [ -z "$repo_url" ] && is_git_repo "$target_dir"; then
+    repo_url="$(git -C "$target_dir" remote get-url origin 2>/dev/null || true)"
+  fi
+
+  resolved_slug="$(strip_common_suffixes "$(slugify "$(basename "$target_dir")")")"
+  [ -n "$resolved_slug" ] || resolved_slug="$(slugify "$(basename "$target_dir")")"
+  [ -n "$project_name" ] || project_name="$(titleize_slug "$resolved_slug")"
+  [ -n "$task_description" ] || task_description="$(default_task_description)"
+  [ -n "$commit_message" ] || commit_message="transform: ${resolved_slug}"
+
+  task_id="transform-${resolved_slug}-$(date +%Y%m%d-%H%M%S)"
+  task_file="${TASKS_DIR}/${task_id}.md"
+  result_file="${OUTPUT_DIR}/${task_id}-result.md"
+  prompt_file="$(mktemp -t volatile-agent-prompt.XXXXXX)"
+  final_message_file="$(mktemp -t volatile-agent-final.XXXXXX)"
+
+  trap "rm -f '$prompt_file' '$final_message_file'" EXIT
+
+  write_task_file "$task_file" "$project_name" "$repo_url" "$target_dir" "$task_description" "$result_file"
+  write_prompt_file "$prompt_file" "$target_dir" "$task_file" "$result_file"
+
+  codex_bin="$(resolve_codex_bin)" || die "Could not locate the Codex CLI binary."
+
+  echo "Target project: ${target_dir}"
+  echo "Task file: ${task_file}"
+  echo "Result file: ${result_file}"
+
+  if [ "$dry_run" -eq 1 ]; then
+    echo "Dry run enabled. Skipping codex exec."
+    return 0
+  fi
+
+  codex_cmd=("$codex_bin" exec --full-auto --color never -C "$target_dir" --add-dir "$WORKSPACE_ROOT" -o "$final_message_file")
+
+  if [ -n "$model" ]; then
+    codex_cmd+=(--model "$model")
+  fi
+
+  codex_cmd+=(-)
+
+  "${codex_cmd[@]}" <"$prompt_file"
+
+  if [ ! -f "$result_file" ]; then
+    write_fallback_result_file "$result_file" "$target_dir" "$final_message_file"
+  fi
+
+  if [ "$commit_after" -eq 1 ]; then
+    commit_site_repo "$target_dir" "$commit_message" "$push_after"
+  fi
+
+  echo "Transform run finished."
+}
+
+main() {
+  local command="${1:-help}"
+
+  case "$command" in
+    transform)
+      shift || true
+      run_transform "$@"
+      ;;
+    help|-h|--help)
+      usage
+      ;;
+    *)
+      die "Unknown command: ${command}"
+      ;;
+  esac
+}
+
+main "$@"

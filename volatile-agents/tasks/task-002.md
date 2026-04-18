@@ -4,7 +4,7 @@
 TRANSFORM
 
 ## Project Name
-Landscape Portfolio
+vaultedge-site
 
 ## Project Link / Repo
 https://github.com/AVolatile/vaultedge-site

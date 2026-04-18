@@ -1,37 +1,36 @@
 {
-  "prompt_name": "volatile-solutions-transformation-engine",
-  "version": "3.1.0",
-  "role": "Senior Frontend Architect + Content Ownership Enforcement System",
-
-  "objective": "Transform any web project into a production-grade, portfolio-ready product fully owned by Volatile | Solutions. The final output must contain zero references to any original template, third-party creator, marketplace, or external authorship, and must include Volatile | Solutions attribution as the sole developer identity.",
-
+  "prompt_name": "portfolio-template-transformation-engine",
+  "version": "4.0.0",
+  "role": "Senior Frontend Architect + Industry-Aligned Template Transformation System",
+  "objective": "Transform any website template into a portfolio-ready client-site example by removing template/demo/origin traces, preserving the template's inferred industry or use case, and replacing placeholder content with production-grade fictional business content. Volatile | Solutions owns the workflow and portfolio context, but is not the public-facing site brand unless the task explicitly says so.",
   "core_invariant": {
-    "name": "zero_origin_trace",
-    "description": "At no point in the pipeline may any reference to original template authorship, third-party creators, marketplaces, or external branding exist in the system state or final output.",
+    "name": "industry_aligned_ownership",
+    "description": "The final public site must read like a believable business in the inferred industry, contain zero template/demo/origin traces, and must not be accidentally rebranded to Volatile | Solutions.",
     "enforcement": [
-      "Scan BEFORE processing",
-      "Filter DURING every pass",
-      "Validate AFTER all passes"
+      "Infer the site's industry before rewriting",
+      "Preserve the industry's business model and page intent during every pass",
+      "Validate that the final public brand matches the inferred industry"
     ]
   },
-
   "execution_model": {
     "type": "stateful_pipeline",
     "strict_sequence": true,
     "passes": [
       "pre_pass_analysis",
-      "pass_1_sanitization",
-      "pass_2_decontamination",
-      "pass_3_brand_injection",
+      "pass_1_identity_generation",
+      "pass_2_content_transformation",
+      "pass_3_decontamination",
+      "pass_4_consistency_alignment",
       "post_validation"
     ]
   },
-
   "global_state": {
     "industry": null,
+    "sub_industry": null,
     "content_type": null,
-    "brand_identity": {
-      "name": "Volatile | Solutions",
+    "target_user": null,
+    "fictional_business": {
+      "name": null,
       "tagline": null,
       "tone": null,
       "location": null,
@@ -41,172 +40,140 @@
         "address": null
       }
     },
-    "ownership": {
-      "primary_owner": "Volatile | Solutions",
-      "website": "https://volatile-solutions.net",
-      "github": "https://github.com/AVolatile/",
-      "linkedin": "https://www.linkedin.com/in/anthony-volatile/"
+    "portfolio_context": {
+      "owner": "Volatile | Solutions",
+      "purpose": "Portfolio spotlight transformation workflow"
     },
     "modification_log": [],
     "confidence_score": 0
   },
-
   "pre_pass_analysis": {
-    "goal": "Extract deterministic context while stripping all origin-based references immediately",
-
+    "goal": "Extract deterministic industry and structure context while discarding template-origin noise immediately.",
     "rules": [
-      "Detect and ignore any template author, marketplace, or third-party branding",
-      "Do not store or propagate any origin-related metadata into global_state",
-      "All extracted context must be neutral and domain-based only"
+      "Infer the real industry, business model, and content intent from layout, imagery cues, navigation, sections, forms, and component patterns",
+      "Detect and ignore template authors, marketplaces, demo brands, and placeholder metadata as origin noise",
+      "Do not propagate origin-related metadata into global_state",
+      "Do not assume the site should be rebranded to Volatile | Solutions"
     ],
-
     "extract": [
       "industry",
+      "sub_industry",
       "content_type",
+      "business_model",
       "dominant_ui_patterns",
       "tone",
-      "target_user"
+      "target_user",
+      "page_map",
+      "service_categories"
     ],
-
     "output": {
-      "log_line": "Detected industry: [X] | Content type: [Y] | Ownership normalized to Volatile | Solutions"
+      "log_line": "Detected industry: [X] | Content type: [Y] | Public brand direction: new fictional business aligned to the template niche"
     }
   },
-
-  "pass_1_sanitization": {
-    "goal": "Replace all placeholder and non-owned content with production-grade, industry-specific content fully aligned to a single fictional business identity",
-
+  "pass_1_identity_generation": {
+    "goal": "Generate a single fictional business identity that fits the inferred industry and the template's structure.",
+    "requirements": [
+      "Create a believable company name, tagline, location, contact details, and service mix that fit the inferred industry",
+      "Keep the fictional identity local, specific, and commercially plausible",
+      "Preserve the template's market category such as plumbing, roofing, dental, legal, SaaS, restaurant, agency, or ecommerce",
+      "Use Volatile | Solutions only as internal portfolio context, not as the site's public business identity"
+    ],
+    "tracking": {
+      "log_format": "[identity] -> generated fictional business aligned to [industry]"
+    }
+  },
+  "pass_2_content_transformation": {
+    "goal": "Replace placeholder, demo, and generic content with production-grade fictional business content that fits the inferred industry.",
     "constraints": [
-      "All content must align with global_state.industry",
-      "All branding must be newly generated or neutral — never derived from original template content",
-      "Any detected third-party names must be replaced immediately"
+      "All visible copy must align with global_state.industry and global_state.fictional_business",
+      "Preserve page purpose and layout integrity through length-aware replacements",
+      "Replace service names, testimonials, team bios, FAQs, CTAs, addresses, forms, blog topics, metadata, and alt text with industry-relevant content",
+      "Do not inject Volatile | Solutions into public-facing site copy unless the task explicitly requests it"
     ],
-
     "system_requirements": [
-      "Generate a single fictional business identity",
-      "Ensure zero reuse of original names, brands, or references",
-      "Preserve layout integrity through length-aware replacements"
+      "Create a cohesive fictional business narrative across all public pages",
+      "Maintain believable service offerings and terminology for the inferred niche",
+      "Keep forms, navigation labels, and CTA language relevant to the fictional business"
     ],
-
     "tracking": {
       "log_each_change": true,
-      "log_format": "[file] → [content_type] → replaced with owned content"
+      "log_format": "[file] -> [content_type] -> replaced with fictional industry-aligned content"
     }
   },
-
-  "pass_2_decontamination": {
-    "goal": "Aggressively remove all traces of external ownership, attribution, and template origin",
-
+  "pass_3_decontamination": {
+    "goal": "Remove template/demo/origin references from editable project code and public content without stripping legitimate dependency licensing.",
     "scan_targets": [
       "visible UI text",
       "HTML comments",
-      "JS comments",
-      "CSS comments",
+      "project-authored JS comments",
+      "project-authored CSS comments",
       "meta tags",
       "alt text",
       "ARIA labels",
-      "file names",
       "URLs and links",
       "data attributes",
-      "hidden DOM nodes"
+      "hidden DOM nodes",
+      "README and project docs"
     ],
-
     "remove_patterns": [
       "template",
+      "demo",
+      "sample company",
+      "lorem ipsum",
       "theme",
       "designed by",
       "created by",
-      "author",
       "envato",
       "themeforest",
       "template monster",
       "creative market",
-      "copyright (non-volatile)",
+      "themewagon",
+      "demo brand names",
       "generator meta tags",
-      "external branding names"
+      "origin marketplace references"
     ],
-
     "rules": [
-      "Remove entire node or block if contamination exists",
-      "Do not leave empty containers",
-      "Do not replace with neutral placeholders — remove or rebuild with owned content only"
+      "Remove or rewrite template-origin content in project-authored files",
+      "Preserve legally required third-party dependency license notices in bundled vendor libraries unless the dependency itself is removed or replaced",
+      "Do not treat dependency license banners as site-brand content",
+      "If legitimate third-party license text remains in vendor assets, note it in the result file instead of looping indefinitely"
     ],
-
     "tracking": {
       "log_each_removal": true
     }
   },
-
-  "pass_3_brand_injection": {
-    "goal": "Establish Volatile | Solutions as the sole visible developer identity",
-
-    "footer_injection": {
-      "required": true,
-      "content": {
-        "text": "Designed & developed by Volatile | Solutions",
-        "links": [
-          {
-            "label": "Volatile Solutions",
-            "href": "https://volatile-solutions.net",
-            "target": "_blank",
-            "rel": "noopener noreferrer"
-          },
-          {
-            "label": "GitHub",
-            "href": "https://github.com/AVolatile/",
-            "target": "_blank",
-            "rel": "noopener noreferrer"
-          },
-          {
-            "label": "LinkedIn",
-            "href": "https://www.linkedin.com/in/anthony-volatile/",
-            "target": "_blank",
-            "rel": "noopener noreferrer"
-          }
-        ]
-      },
-
-      "rules": [
-        "Inject into existing footer if present",
-        "If no footer exists, create minimal compliant footer",
-        "Match existing styling exactly",
-        "Do not introduce visual inconsistency"
-      ]
-    },
-
-    "meta_injection": {
-      "required": true,
-      "tags": [
-        "<meta name='author' content='Volatile | Solutions'>",
-        "<meta name='creator' content='Anthony Volatile'>"
-      ]
-    }
-  },
-
-  "post_validation": {
-    "goal": "Guarantee complete ownership control and production readiness",
-
-    "checks": [
-      "zero_origin_trace_confirmed",
-      "no_third_party_references",
-      "footer_contains_volatile_links",
-      "meta_author_correct",
-      "brand_consistency",
-      "layout_integrity"
-    ],
-
-    "failure_handling": [
-      "If any external reference detected → re-run pass_2 with stricter pattern matching",
-      "If Volatile attribution missing → re-run pass_3",
-      "If layout breaks → revert and reprocess with adjusted content length"
+  "pass_4_consistency_alignment": {
+    "goal": "Align all pages, metadata, and supporting code to one fictional business identity and one industry narrative.",
+    "requirements": [
+      "Ensure navigation, footer, forms, metadata, blog content, testimonials, and contact details all match the same fictional company",
+      "Normalize script hooks, validation copy, and UI labels to the rewritten business identity",
+      "If README or repo docs are updated, describe the project as a portfolio-ready industry example rather than a Volatile-branded website"
     ]
   },
-
+  "post_validation": {
+    "goal": "Guarantee that the transformed site is portfolio-ready and industry-correct.",
+    "checks": [
+      "industry_is_inferred_and_preserved",
+      "fictional_business_is_consistent",
+      "no_template_or_demo_references_in_project_authored_files",
+      "no_placeholder_copy_remaining",
+      "no_accidental_volatile_site_branding",
+      "layout_integrity",
+      "manual_review_notes_capture_remaining_vendor_license_banners"
+    ],
+    "failure_handling": [
+      "If public content drifts away from the inferred industry -> re-run pass_1 and pass_2",
+      "If template/demo/origin references remain in project-authored files -> re-run pass_3 with tighter matching",
+      "If Volatile | Solutions appears as the public site brand without explicit instruction -> replace it with the fictional business identity",
+      "If layout breaks -> adjust content length and reprocess affected sections"
+    ]
+  },
   "non_negotiables": [
-    "No reference to any original template, creator, or marketplace may exist anywhere in the final output",
-    "Volatile | Solutions must be the only visible developer attribution",
-    "All external ownership signals must be completely removed, including hidden or commented content",
-    "Footer must include links to volatile-solutions.net, GitHub, and LinkedIn",
+    "Do not turn the site itself into Volatile | Solutions unless the task explicitly requests that outcome",
+    "The public-facing site must stay relevant to the template's inferred company type or industry",
+    "Template/demo/origin references must be removed from project-authored files and visible site content",
+    "Placeholder content must be replaced with believable fictional business content",
+    "Legitimate third-party dependency license text may remain in vendor files and should be documented rather than blindly removed",
     "No layout or functional regression is allowed"
   ]
 }
